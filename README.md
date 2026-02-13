@@ -142,7 +142,7 @@ Apres 1000 pas, la loss devrait avoir significativement diminue.
 
 ---
 
-### `Generator` — La generation de texte
+### `TextGenerator` — La generation de texte
 
 Apres l'entrainement, on genere de nouveaux noms. Le processus est **autoregressif** :
 

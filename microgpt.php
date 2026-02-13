@@ -776,7 +776,7 @@ class Trainer
 }
 
 // =============================================================================
-// CLASSE GENERATOR : Generation de texte (inference)
+// CLASSE TEXTGENERATOR : Generation de texte (inference)
 // =============================================================================
 //
 // Apres l'entrainement, on utilise le modele pour generer de nouveaux textes.
@@ -792,7 +792,7 @@ class Trainer
 //   - temperature haute (ex: 1.5) = predictions plus aleatoires, plus creatives
 // =============================================================================
 
-class Generator
+class TextGenerator
 {
     public function __construct(
         private GPTModel $model,
@@ -904,5 +904,5 @@ $trainer = new Trainer($model, $tokenizer, $optimizer, $config);
 $trainer->train($docs, $num_steps);
 
 // --- Generation ---
-$generator = new Generator($model, $tokenizer, $config);
+$generator = new TextGenerator($model, $tokenizer, $config);
 $generator->generate(num_samples: 20, temperature: 0.5);

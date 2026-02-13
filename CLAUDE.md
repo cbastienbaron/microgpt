@@ -51,7 +51,7 @@ Un seul fichier source : `microgpt.php`. Tout est dedans — autograd, modele, e
 
 7. **`Trainer`** — Boucle d'entrainement. 1000 pas de prediction du prochain token avec cross-entropy loss, retropropagation, et mise a jour Adam.
 
-8. **`Generator`** — Generation de texte par echantillonnage autoregressif avec temperature.
+8. **`TextGenerator`** — Generation de texte par echantillonnage autoregressif avec temperature.
 
 ### Choix architecturaux (identiques a l'original de Karpathy)
 
