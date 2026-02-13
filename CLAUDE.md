@@ -1,103 +1,106 @@
-# CLAUDE.md - AI Assistant Guide for microgpt-php
+# CLAUDE.md - Guide pour microgpt-php
 
-## Project Overview
+## Vue d'ensemble
 
-A pure PHP port of Andrej Karpathy's [microgpt](https://karpathy.ai/microgpt.html) — the most atomic way to train and inference a GPT (Generative Pretrained Transformer) with zero dependencies. The original is ~250 lines of pure Python; this is the equivalent in pure PHP.
+Port en PHP pur du [microgpt](https://karpathy.ai/microgpt.html) d'Andrej Karpathy — la facon la plus minimale d'entrainer et d'executer un GPT (Generative Pretrained Transformer) sans aucune dependance. L'original fait ~250 lignes de Python pur ; ceci est l'equivalent en PHP, structure en classes avec commentaires explicatifs en francais.
 
-The model trains a character-level GPT on a dataset of names and then generates new, hallucinated names via autoregressive sampling.
+Le modele entraine un GPT au niveau des caracteres sur un jeu de donnees de prenoms, puis genere de nouveaux noms hallucines par echantillonnage autoregressif.
 
-## Repository Structure
+## Structure du depot
 
 ```
 microgpt/
-├── CLAUDE.md          # This file — AI assistant guide
-├── microgpt.php       # The entire implementation (single file)
-└── input.txt          # Training data (auto-downloaded on first run)
+├── CLAUDE.md          # Ce fichier — guide pour l'assistant IA
+├── microgpt.php       # L'implementation complete (fichier unique)
+└── input.txt          # Donnees d'entrainement (telecharge automatiquement)
 ```
 
-There is exactly **one source file**: `microgpt.php`. Everything — autograd, model weights, forward pass, training loop, Adam optimizer, and inference — lives in that single file.
+Un seul fichier source : `microgpt.php`. Tout est dedans — autograd, modele, entrainement, optimiseur, inference.
 
-## Tech Stack
+## Stack technique
 
-- **Language**: PHP 8.1+ (uses union types `Value|float`)
-- **Dependencies**: None. Pure PHP, no Composer, no extensions, no frameworks.
-- **Runtime**: CLI only (`php microgpt.php`)
+- **Langage** : PHP 8.1+ (utilise les types union `Value|float` et les proprietes promues dans le constructeur)
+- **Dependances** : Aucune. PHP pur, pas de Composer, pas d'extensions, pas de framework.
+- **Execution** : CLI uniquement (`php microgpt.php`)
 
 ## Architecture
 
-### Core Components (in order of appearance in `microgpt.php`)
+### Classes (dans l'ordre d'apparition dans `microgpt.php`)
 
-1. **`Value` class** (~80 lines) — Tiny automatic differentiation (autograd) engine. Every scalar is wrapped in a `Value` that tracks the computational graph for backpropagation. Supports: `add`, `mul`, `pow_`, `log_`, `exp_`, `relu`, `neg`, `sub`, `div`, and `backward()`.
+1. **`Value`** (~120 lignes) — Moteur d'auto-differentiation (autograd). Chaque scalaire est enveloppe dans un `Value` qui trace le graphe de calcul pour la retropropagation. Operations : `add`, `mul`, `pow_`, `log_`, `exp_`, `relu`, `neg`, `sub`, `div`, et `backward()`.
 
-2. **Helper functions**:
-   - `gauss()` — Box-Muller transform for Gaussian random numbers
-   - `matrix()` — Creates a 2D array of `Value` objects with random init
-   - `linear()` — Matrix-vector multiply (a dense layer)
-   - `softmax()` — Numerically stable softmax over `Value[]`
-   - `rmsnorm()` — RMS normalization (used instead of LayerNorm)
-   - `weighted_choice()` — Weighted random sampling for token generation
+2. **`Tokenizer`** — Tokenizer au niveau des caracteres. Chaque caractere = un token, plus un token BOS/EOS. Methodes : `encode()` (texte -> tokens), `decode()` (token -> caractere).
 
-3. **Model configuration** — Hyperparameters defined as global variables:
-   - `$n_embd = 16` (embedding dimension)
-   - `$n_head = 4` (attention heads)
-   - `$n_layer = 1` (transformer layers)
-   - `$block_size = 16` (context window)
+3. **`MathHelpers`** — Fonctions mathematiques statiques :
+   - `gauss()` — Transformation de Box-Muller pour les nombres gaussiens
+   - `matrix()` — Cree une matrice 2D de `Value` avec initialisation aleatoire
+   - `linear()` — Multiplication matrice-vecteur (couche dense)
+   - `softmax()` — Softmax numeriquement stable sur `Value[]`
+   - `rmsnorm()` — Normalisation RMS (utilisee a la place de LayerNorm)
+   - `weighted_choice()` — Echantillonnage aleatoire pondere
 
-4. **State dict** — All model weights stored in a global `$state_dict` associative array with keys like `wte`, `wpe`, `lm_head`, `layer0.attn_wq`, etc.
+4. **`GPTConfig`** — Hyperparametres du modele :
+   - `n_embd = 16` (dimension des embeddings)
+   - `n_head = 4` (tetes d'attention)
+   - `n_layer = 1` (couches Transformer)
+   - `block_size = 16` (fenetre de contexte)
 
-5. **`gpt()` function** — The full GPT forward pass: token + positional embeddings, RMS normalization, multi-head causal self-attention with KV cache, feed-forward MLP with ReLU activation, and residual connections.
+5. **`GPTModel`** — Le modele Transformer complet. Contient le `state_dict` (poids) et la methode `forward()` : embeddings token + position, RMS norm, attention multi-tetes causale avec cache KV, MLP feed-forward avec ReLU, et connexions residuelles.
 
-6. **Training loop** — 1000 steps of next-token prediction on the names dataset using Adam optimizer with linear learning rate decay.
+6. **`AdamOptimizer`** — Optimiseur Adam avec decay lineaire du taux d'apprentissage. Gere les moyennes mobiles du gradient (1er et 2eme moment) avec correction de biais.
 
-7. **Inference** — Generates 20 new names via temperature-scaled autoregressive sampling.
+7. **`Trainer`** — Boucle d'entrainement. 1000 pas de prediction du prochain token avec cross-entropy loss, retropropagation, et mise a jour Adam.
 
-### Key Architectural Choices (same as Karpathy's original)
+8. **`Generator`** — Generation de texte par echantillonnage autoregressif avec temperature.
 
-- **RMS Normalization** instead of Layer Normalization
-- **No biases** anywhere in the model
-- **ReLU** activation (not GeLU) in the MLP
-- **Character-level tokenizer** (each character = one token, plus a BOS/EOS token)
-- **KV cache** during both training and inference
+### Choix architecturaux (identiques a l'original de Karpathy)
 
-## How to Run
+- **RMS Normalization** au lieu de Layer Normalization
+- **Pas de biais** nulle part dans le modele
+- **ReLU** (pas GeLU) dans le MLP
+- **Tokenizer au niveau des caracteres** (chaque caractere = un token + BOS/EOS)
+- **Cache KV** pendant l'entrainement et l'inference
+
+## Execution
 
 ```bash
 php microgpt.php
 ```
 
-On first run, it auto-downloads `names.txt` (~29K names) from Karpathy's makemore repo. Training runs 1000 steps and then generates 20 sample names. No GPU required.
+Au premier lancement, le jeu de donnees `names.txt` (~29K prenoms) est telecharge automatiquement depuis le repo makemore de Karpathy. L'entrainement tourne 1000 pas puis genere 20 noms. Pas besoin de GPU.
 
-**Requirements**: PHP 8.1+ with `allow_url_fopen=On` (default).
+**Prerequis** : PHP 8.1+ avec `allow_url_fopen=On` (par defaut).
 
-**Expected runtime**: This is intentionally slow — pure scalar autograd with no vectorization. Expect it to take a long time. The purpose is educational, not performant.
+**Temps d'execution** : Intentionnellement lent — autograd scalaire pur sans vectorisation. Le but est pedagogique, pas performant.
 
-## Development Conventions
+## Conventions de developpement
 
-### Code Style
-- Single file, procedural + one class
-- Global variables for model config and state (mirrors the Python original)
-- Functions use PHPDoc `@param`/`@return` annotations for array types
-- No namespaces, no autoloading — this is intentionally minimal
+### Style de code
+- Fichier unique, architecture orientee objet
+- Les commentaires explicatifs sont en francais
+- PHPDoc `@param`/`@return` pour les types de tableaux
+- Pas de namespaces, pas d'autoloading — minimalisme intentionnel
+- Proprietes promues dans les constructeurs (PHP 8.1)
 
-### Naming
-- PHP function/variable names match the Python original as closely as possible
-- PHP methods that shadow built-in names use trailing underscores: `pow_()`, `log_()`, `exp_()`
-- The `Value` class method names are explicit verbs (`add`, `mul`, `div`) since PHP lacks operator overloading
+### Nommage
+- Les noms PHP suivent l'original Python d'aussi pres que possible
+- Les methodes qui masquent des noms PHP natifs ont un underscore : `pow_()`, `log_()`, `exp_()`
+- Les methodes de `Value` sont des verbes explicites (`add`, `mul`, `div`) car PHP ne supporte pas la surcharge d'operateurs
 
-### Key Differences from the Python Original
-- `Value` operations are method calls (`$a->add($b)`) rather than operators (`a + b`)
-- `SplObjectStorage` replaces Python's `set()` for object identity tracking in `backward()`
-- `gauss()` uses Box-Muller since PHP has no `random.gauss()`
-- `weighted_choice()` replaces Python's `random.choices()`
-- PHP arrays are used where Python uses lists; `array_slice` replaces Python slicing
+### Differences cles avec l'original Python
+- Les operations `Value` sont des appels de methodes (`$a->add($b)`) au lieu d'operateurs (`a + b`)
+- Architecture en classes (OOP) au lieu de fonctions globales et variables globales
+- `SplObjectStorage` remplace `set()` de Python pour le suivi d'identite dans `backward()`
+- `gauss()` utilise Box-Muller car PHP n'a pas `random.gauss()`
+- `weighted_choice()` remplace `random.choices()` de Python
 
-### Testing
-There is no test suite. Correctness can be verified by:
-1. Checking that training loss decreases over steps
-2. Comparing generated names to the Python version's output (with same seed)
+### Tests
+Il n'y a pas de suite de tests. La validite peut etre verifiee en :
+1. Verifiant que la loss diminue au cours de l'entrainement
+2. Comparant les noms generes avec la sortie de la version Python (meme seed)
 
-### Extending
-- To change hyperparameters, edit the config section (`$n_embd`, `$n_head`, `$n_layer`, `$block_size`)
-- To use a different dataset, replace `input.txt` with any newline-separated text file
-- To change the number of training steps, edit `$num_steps`
-- To change inference temperature, edit `$temperature`
+### Extension
+- Pour changer les hyperparametres, modifier l'instanciation de `GPTConfig`
+- Pour un autre jeu de donnees, remplacer `input.txt` par un fichier texte avec un mot par ligne
+- Pour changer le nombre de pas, modifier `$num_steps`
+- Pour changer la temperature d'inference, modifier le parametre `temperature` dans `$generator->generate()`
